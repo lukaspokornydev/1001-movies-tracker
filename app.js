@@ -1,7 +1,6 @@
 import moviesData from './list.js';
 import { initProfile } from './profile.js';
 
-
 const movies = moviesData.movies;
 let watchedMovies = [];
 let currentDecade = null;
@@ -11,11 +10,24 @@ let unsubscribe = null;
 // Firebase variables
 let auth, db;
 
+// Check for saved user ID on startup
+function checkSavedUserId() {
+  const savedId = localStorage.getItem('savedUserId');
+  if (savedId) {
+    const shouldRestore = confirm(`Found saved profile (ID: ${savedId.substring(0, 12)}...)\n\nDo you want to restore this profile?\n\nClick Cancel to create a new profile.`);
+    if (!shouldRestore) {
+      localStorage.removeItem('savedUserId');
+    }
+    return shouldRestore ? savedId : null;
+  }
+  return null;
+}
+
 // Initialize Firebase
 async function initFirebase() {
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const { getAuth, signInAnonymously, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    const { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
     const { getFirestore, doc, setDoc, getDoc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     const { firebaseConfig } = await import('./firebase-config.js');
 
@@ -23,10 +35,16 @@ async function initFirebase() {
     auth = getAuth(app);
     db = getFirestore(app);
 
+    // Check for saved user ID
+    const savedUserId = checkSavedUserId();
+
     // Auth state observer
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         userId = user.uid;
+        
+        // Save user ID for future logins
+        localStorage.setItem('savedUserId', userId);
         
         // Load profile name if exists
         try {
