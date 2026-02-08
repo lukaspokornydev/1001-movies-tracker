@@ -181,6 +181,10 @@ function displayDecades() {
     
     const count = groupedMovies[decade].length;
     const watched = groupedMovies[decade].filter(m => watchedMovies.includes(m.title)).length;
+    const progressPercent = (watched / count) * 100;
+    
+    // Set the progress as a CSS custom property
+    button.style.setProperty('--progress', `${progressPercent}%`);
     
     const badge = document.createElement('span');
     badge.className = 'decade-badge';
@@ -251,8 +255,80 @@ window.toggleWatched = async function(title) {
 
 // Update stats
 function updateStats() {
+  const totalCount = movies.length;
   document.getElementById('watched-count').textContent = watchedMovies.length;
-  document.getElementById('total-count').textContent = movies.length;
+  document.getElementById('total-count').textContent = totalCount;
+  document.getElementById('total-count-title').textContent = totalCount;
+}
+
+// Search functionality
+const searchInput = document.getElementById('movie-search');
+const searchResults = document.getElementById('search-results');
+
+searchInput.addEventListener('input', (e) => {
+  const query = e.target.value.trim().toLowerCase();
+  
+  if (query.length < 2) {
+    searchResults.classList.remove('show');
+    return;
+  }
+  
+  const results = movies.filter(movie => {
+    return movie.title.toLowerCase().includes(query) ||
+           movie.year.includes(query) ||
+           movie.director.toLowerCase().includes(query);
+  });
+  
+  displaySearchResults(results);
+});
+
+// Close search results when clicking outside
+document.addEventListener('click', (e) => {
+  if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+    searchResults.classList.remove('show');
+  }
+});
+
+function displaySearchResults(results) {
+  if (results.length === 0) {
+    searchResults.innerHTML = '<div class="search-no-results">No movies found</div>';
+    searchResults.classList.add('show');
+    return;
+  }
+  
+  searchResults.innerHTML = results.slice(0, 10).map(movie => {
+    const isWatched = watchedMovies.includes(movie.title);
+    return `
+      <div class="search-result-item ${isWatched ? 'watched' : ''}" onclick="goToMovie('${movie.title.replace(/'/g, "\\'")}', '${movie.year}')">
+        <span class="search-result-title">${movie.title}</span>
+        <span class="search-result-year">${movie.year}</span>
+        ${isWatched ? '<span class="search-result-watched">✓</span>' : ''}
+      </div>
+    `;
+  }).join('');
+  
+  searchResults.classList.add('show');
+}
+
+window.goToMovie = function(title, year) {
+  const decade = Math.floor(parseInt(year) / 10) * 10;
+  currentDecade = decade;
+  displayMoviesByDecade(decade);
+  displayDecades();
+  
+  // Scroll to the movie card
+  setTimeout(() => {
+    const movieCards = document.querySelectorAll('.movie-card h3');
+    movieCards.forEach(card => {
+      if (card.textContent === title) {
+        card.closest('.movie-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.closest('.movie-card').style.animation = 'highlight 1s ease';
+      }
+    });
+  }, 100);
+  
+  searchResults.classList.remove('show');
+  searchInput.value = '';
 }
 
 // Initialize app
