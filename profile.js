@@ -1,27 +1,29 @@
 let profileAuth, profileDb;
 
-export async function initProfile() {
-  try {
-    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-    const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    
-    profileAuth = getAuth();
-    profileDb = getFirestore();
-    
-    setupProfileUI();
-  } catch (error) {
-    console.error('Profile init error:', error);
-  }
+export async function initProfile(authInstance, dbInstance) {
+  profileAuth = authInstance;
+  profileDb = dbInstance;
+  
+  setupProfileUI();
 }
 
 function setupProfileUI() {
   const userStatus = document.getElementById('user-status');
+  if (!userStatus) {
+    console.error('user-status element not found');
+    return;
+  }
+  
   userStatus.style.cursor = 'pointer';
   userStatus.title = 'Click to manage profile';
   userStatus.onclick = showProfileModal;
+  
+  console.log('Profile UI setup complete - user-status is now clickable');
 }
 
 function showProfileModal() {
+  console.log('Profile modal opened');
+  
   const modal = document.createElement('div');
   modal.id = 'profile-modal';
   modal.innerHTML = `

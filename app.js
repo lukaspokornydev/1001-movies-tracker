@@ -44,6 +44,9 @@ async function initFirebase() {
         
         await loadWatchedMovies();
         setupRealtimeSync();
+        
+        // Initialize profile functionality AFTER user is authenticated
+        await initProfile(auth, db);
       } else {
         // Sign in anonymously
         try {
@@ -55,9 +58,6 @@ async function initFirebase() {
         }
       }
     });
-    
-    // Initialize profile functionality after auth is set up
-    await initProfile();
     
   } catch (error) {
     console.error('Firebase initialization error:', error);
