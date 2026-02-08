@@ -72,7 +72,6 @@ header h1 {
   opacity: 0.8;
   font-weight: normal;
 }
-
 #movies-container {
   padding: 2rem;
   max-width: 1400px;
@@ -88,8 +87,9 @@ header h1 {
 
 .movies-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1.5rem;
+  justify-items: center;
 }
 
 .movie-card {
@@ -98,6 +98,8 @@ header h1 {
   overflow: hidden;
   transition: all 0.3s ease;
   border: 2px solid transparent;
+  max-width: 200px;
+  width: 100%;
 }
 
 .movie-card:hover {
