@@ -1,187 +1,60 @@
 import moviesData from './list.js';
-import { firebaseConfig } from './firebase-config.js';
 
 const movies = moviesData.movies;
 let watchedMovies = [];
 let currentDecade = null;
-let currentUser = null;
+let userId = null;
 let unsubscribe = null;
 
 // Firebase variables
 let auth, db;
 
-// Show/hide login modal
-function showLoginModal() {
-  document.getElementById('login-modal').classList.add('show');
-}
-
-function hideLoginModal() {
-  document.getElementById('login-modal').classList.remove('show');
-}
-
 // Initialize Firebase
 async function initFirebase() {
-  if (!firebaseConfig) {
-    console.log('Firebase not configured, using offline mode');
-    document.getElementById('user-status').textContent = '📴 Offline mode';
-    hideLoginModal();
-    return;
-  }
-
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    const { getAuth, signInAnonymously, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
     const { getFirestore, doc, setDoc, getDoc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    const { firebaseConfig } = await import('./firebase-config.js');
 
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
 
-    // Check if user is already logged in
-    const savedUserId = localStorage.getItem('userId');
-    if (!savedUserId) {
-      showLoginModal();
-    }
-
-    // Google Sign-In
-    document.getElementById('google-signin-btn').onclick = async () => {
-      try {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-      } catch (error) {
-        console.error('Google sign-in error:', error);
-        alert('Failed to sign in with Google: ' + error.message);
-      }
-    };
-
-    // Email Sign-In
-    document.getElementById('email-signin-btn').onclick = async () => {
-      const email = document.getElementById('email-input').value;
-      const password = document.getElementById('password-input').value;
-      
-      if (!email || !password) {
-        alert('Please enter email and password');
-        return;
-      }
-      
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (error) {
-        console.error('Email sign-in error:', error);
-        alert('Failed to sign in: ' + error.message);
-      }
-    };
-
-    // Email Sign-Up
-    document.getElementById('email-signup-btn').onclick = async () => {
-      const email = document.getElementById('email-input').value;
-      const password = document.getElementById('password-input').value;
-      
-      if (!email || !password) {
-        alert('Please enter email and password');
-        return;
-      }
-      
-      if (password.length < 6) {
-        alert('Password must be at least 6 characters');
-        return;
-      }
-      
-      try {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } catch (error) {
-        console.error('Email sign-up error:', error);
-        alert('Failed to create account: ' + error.message);
-      }
-    };
-
-    // Anonymous Sign-In
-    document.getElementById('anonymous-btn').onclick = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error('Anonymous sign-in error:', error);
-        alert('Failed to continue: ' + error.message);
-      }
-    };
-
-    // Logout
-    document.getElementById('logout-btn').onclick = async () => {
-      if (confirm('Are you sure you want to logout? Your data will be saved.')) {
-        try {
-          await signOut(auth);
-          localStorage.removeItem('userId');
-          watchedMovies = [];
-          showLoginModal();
-          displayDecades();
-          updateStats();
-          if (currentDecade) {
-            displayMoviesByDecade(currentDecade);
-          }
-        } catch (error) {
-          console.error('Logout error:', error);
-          alert('Failed to logout: ' + error.message);
-        }
-      }
-    };
-
     // Auth state observer
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        currentUser = user;
-        localStorage.setItem('userId', user.uid);
-        
-        // Update UI based on auth type
-        if (user.isAnonymous) {
-          document.getElementById('user-status').textContent = '📴 Local Only';
-        } else if (user.providerData[0]?.providerId === 'google.com') {
-          document.getElementById('user-status').textContent = `☁️ ${user.displayName || user.email}`;
-        } else {
-          document.getElementById('user-status').textContent = `☁️ ${user.email}`;
-        }
-        
-        document.getElementById('logout-btn').style.display = 'block';
-        hideLoginModal();
-        
-        await loadWatchedMoviesFromFirestore(user.uid);
-        setupRealtimeSync(user.uid);
+        userId = user.uid;
+        document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
+        await loadWatchedMovies();
+        setupRealtimeSync();
       } else {
-        currentUser = null;
-        document.getElementById('user-status').textContent = 'Not logged in';
-        document.getElementById('logout-btn').style.display = 'none';
-        
-        // Only show modal if no local data exists
-        const hasLocalData = localStorage.getItem('watchedMovies');
-        if (!hasLocalData) {
-          showLoginModal();
+        // Sign in anonymously
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error('Auth error:', error);
+          document.getElementById('user-status').textContent = 'Offline mode';
+          loadLocalWatchedMovies();
         }
       }
     });
   } catch (error) {
     console.error('Firebase initialization error:', error);
-    document.getElementById('user-status').textContent = '📴 Offline mode';
-    hideLoginModal();
+    document.getElementById('user-status').textContent = 'Offline mode';
+    loadLocalWatchedMovies();
   }
 }
 
 // Load watched movies from Firestore
-async function loadWatchedMoviesFromFirestore(userId) {
+async function loadWatchedMovies() {
   try {
     const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      const firestoreMovies = docSnap.data().watchedMovies || [];
-      const localMovies = JSON.parse(localStorage.getItem('watchedMovies')) || [];
-      
-      // Merge local and firestore data (union of both)
-      watchedMovies = [...new Set([...firestoreMovies, ...localMovies])];
-      
-      // Save merged data back to Firestore
-      if (watchedMovies.length > firestoreMovies.length) {
-        await saveWatchedMovies();
-      }
+      watchedMovies = docSnap.data().watchedMovies || [];
     } else {
       // Migrate from localStorage if exists
       const localData = localStorage.getItem('watchedMovies');
@@ -191,14 +64,19 @@ async function loadWatchedMoviesFromFirestore(userId) {
       }
     }
     
-    // Refresh UI
     displayDecades();
     updateStats();
+    
     if (currentDecade) {
       displayMoviesByDecade(currentDecade);
+    } else {
+      const firstDecade = Math.floor(parseInt(movies[0].year) / 10) * 10;
+      currentDecade = firstDecade;
+      displayMoviesByDecade(firstDecade);
     }
   } catch (error) {
-    console.error('Error loading watched movies from Firestore:', error);
+    console.error('Error loading watched movies:', error);
+    loadLocalWatchedMovies();
   }
 }
 
@@ -214,7 +92,7 @@ function loadLocalWatchedMovies() {
 }
 
 // Setup realtime sync
-async function setupRealtimeSync(userId) {
+async function setupRealtimeSync() {
   try {
     const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     
@@ -226,9 +104,8 @@ async function setupRealtimeSync(userId) {
         const newWatchedMovies = doc.data().watchedMovies || [];
         
         // Only update if data changed
-        if (JSON.stringify(newWatchedMovies.sort()) !== JSON.stringify(watchedMovies.sort())) {
+        if (JSON.stringify(newWatchedMovies) !== JSON.stringify(watchedMovies)) {
           watchedMovies = newWatchedMovies;
-          localStorage.setItem('watchedMovies', JSON.stringify(watchedMovies));
           displayDecades();
           updateStats();
           
@@ -248,17 +125,16 @@ async function saveWatchedMovies() {
   // Always save to localStorage first
   localStorage.setItem('watchedMovies', JSON.stringify(watchedMovies));
   
-  if (!currentUser || !db) {
+  if (!userId || !db) {
     return;
   }
   
   try {
     const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    const docRef = doc(db, 'users', currentUser.uid);
+    const docRef = doc(db, 'users', userId);
     await setDoc(docRef, {
       watchedMovies: watchedMovies,
-      lastUpdated: new Date().toISOString(),
-      userEmail: currentUser.email || 'anonymous'
+      lastUpdated: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error saving to Firestore:', error);
@@ -330,7 +206,7 @@ function displayMoviesByDecade(decade) {
     const isWatched = watchedMovies.includes(movie.title);
     
     const movieCard = document.createElement('div');
-movieCard.className = `movie-card ${isWatched ? 'watched' : ''}`;
+    movieCard.className = `movie-card ${isWatched ? 'watched' : ''}`;
     movieCard.innerHTML = `
       <div class="movie-poster">
         <img src="${movie.img}" alt="${movie.title}" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
@@ -379,11 +255,7 @@ function updateStats() {
   document.getElementById('total-count').textContent = movies.length;
 }
 
-// Initialize app - Load movies immediately
+// Initialize app
 console.log('Initializing app...');
-
-// Load movies from localStorage immediately
-loadLocalWatchedMovies();
-
-// Then initialize Firebase in the background
-initFirebase();
+loadLocalWatchedMovies(); // Load immediately from localStorage
+initFirebase(); // Then try to init Firebase in background
