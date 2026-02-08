@@ -250,6 +250,7 @@ header h1 {
     10px 10px 0 rgba(44, 24, 16, 0.4),
     inset 0 0 0 8px #f4e8d0;
   z-index: 10;
+  cursor: pointer;
 }
 
 .movie-card.watched {
