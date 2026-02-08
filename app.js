@@ -25,7 +25,6 @@ async function initFirebase() {
     console.log('Firebase not configured, using offline mode');
     document.getElementById('user-status').textContent = '📴 Offline mode';
     hideLoginModal();
-    loadLocalWatchedMovies();
     return;
   }
 
@@ -116,6 +115,9 @@ async function initFirebase() {
           showLoginModal();
           displayDecades();
           updateStats();
+          if (currentDecade) {
+            displayMoviesByDecade(currentDecade);
+          }
         } catch (error) {
           console.error('Logout error:', error);
           alert('Failed to logout: ' + error.message);
@@ -147,14 +149,18 @@ async function initFirebase() {
         currentUser = null;
         document.getElementById('user-status').textContent = 'Not logged in';
         document.getElementById('logout-btn').style.display = 'none';
-        showLoginModal();
+        
+        // Only show modal if no local data exists
+        const hasLocalData = localStorage.getItem('watchedMovies');
+        if (!hasLocalData) {
+          showLoginModal();
+        }
       }
     });
   } catch (error) {
     console.error('Firebase initialization error:', error);
     document.getElementById('user-status').textContent = '📴 Offline mode';
     hideLoginModal();
-    loadLocalWatchedMovies();
   }
 }
 
@@ -190,14 +196,9 @@ async function loadWatchedMoviesFromFirestore(userId) {
     updateStats();
     if (currentDecade) {
       displayMoviesByDecade(currentDecade);
-    } else {
-      const firstDecade = Math.floor(parseInt(movies[0].year) / 10) * 10;
-      currentDecade = firstDecade;
-      displayMoviesByDecade(firstDecade);
     }
   } catch (error) {
     console.error('Error loading watched movies from Firestore:', error);
-    loadLocalWatchedMovies();
   }
 }
 
