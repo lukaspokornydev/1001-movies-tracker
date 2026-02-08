@@ -379,6 +379,11 @@ function updateStats() {
   document.getElementById('total-count').textContent = movies.length;
 }
 
-// Initialize app
+// Initialize app - Load movies immediately
 console.log('Initializing app...');
+
+// Load movies from localStorage immediately
+loadLocalWatchedMovies();
+
+// Then initialize Firebase in the background
 initFirebase();
