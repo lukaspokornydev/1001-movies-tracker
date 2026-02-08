@@ -1,0 +1,16 @@
+# Firebase config (contains API keys)
+firebase-config.js
+
+# Node modules (if you add any later)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Local storage backup
+*.bak

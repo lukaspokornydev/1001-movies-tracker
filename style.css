@@ -1,0 +1,235 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0f0f0f;
+  color: #fff;
+}
+
+header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.stats {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.decades-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.decade-btn {
+  background: #2a2a2a;
+  border: 2px solid #3a3a3a;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.decade-btn:hover {
+  background: #3a3a3a;
+  border-color: #3a3a3a;
+  transform: translateY(-2px);
+}
+
+.decade-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.decade-badge {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  font-weight: normal;
+}
+
+#movies-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.decade-title {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  color: #667eea;
+}
+
+.movies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 2rem;
+}
+
+.movie-card {
+  background: #1a1a1a;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.movie-card:hover {
+  /* transform: translateY(-5px); */
+  border-color: #3a3a3a;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.movie-card.watched {
+  opacity: 0.7;
+  border-color: #4caf50;
+}
+
+.movie-poster {
+  position: relative;
+  width: 100%;
+  padding-top: 150%;
+  overflow: hidden;
+  background: #2a2a2a;
+}
+
+.movie-poster img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.movie-card:hover .movie-poster img {
+  transform: scale(1.1);
+}
+
+.watched-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #4caf50;
+  color: white;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.movie-info {
+  padding: 1rem;
+}
+
+.movie-info h3 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  min-height: 2.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.movie-year {
+  color: #667eea;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.movie-director {
+  color: #aaa;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.watch-btn {
+  width: 100%;
+  padding: 0.6rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.watch-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.watch-btn.watched {
+  background: #4caf50;
+}
+
+.watch-btn.watched:hover {
+  background: #45a049;
+}
+
+@media (max-width: 768px) {
+  .movies-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+  
+  header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .decade-title {
+    font-size: 1.5rem;
+  }
+}
+
+.user-info {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+#user-status {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}

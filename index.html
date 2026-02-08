@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1001 Movies Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>1001 Movies You Must See Before You Die</h1>
+    <div class="stats">
+      <span id="watched-count">0</span> / <span id="total-count">0</span> watched
+    </div>
+    <div class="user-info">
+      <span id="user-status">Loading...</span>
+    </div>
+  </header>
+  
+  <div class="decades-nav" id="decades-nav">
+    <!-- Decades will be generated here -->
+  </div>
+  
+  <div id="movies-container"></div>
+  
+  <!-- Firebase SDKs -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
