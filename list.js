@@ -551,12 +551,12 @@ export default {
         },
         {
             "title": "M",
-            "director": "Sara Forestier",
+            "director": "Fritz Lang",
             "year": "1931",
             "tags": "Drama",
-            "desc": "Lila and Mo meet at a bus stop. Lila has a paralyzing speech impediment. Mo is chatty and exuberant. Lila is preparing for her exams. Mo illegally races cars for a living. Opposites attract, and they fall in love. But Mo carries a secret burden\u2026",
-            "img": "https://image.tmdb.org/t/p/w600_and_h900_bestv2/jZscdAHWyTKo2FpwHgIud22ErgW.jpg",
-            "length": "2h 40m"
+            "desc": "In this classic German thriller, Hans Beckert, a serial killer who preys on children, becomes the focus of a massive Berlin police manhunt. Beckert's heinous crimes are so repellant and disruptive to city life that he is even targeted by others in the seedy underworld network. With both cops and criminals in pursuit, the murderer soon realizes that people are on his trail, sending him into a tense, panicked attempt to escape justice.",
+            "img": "https://image.tmdb.org/t/p/w1280/bTdZk3q2DWpBRnLiaaItKFWOVhI.jpg",
+            "length": "1h 49m"
         },
         {
             "title": "La Chienne",
