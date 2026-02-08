@@ -35,24 +35,155 @@ function showProfileModal() {
   `;
   
   document.body.appendChild(modal);
-  loadProfileForm();
+  
+  if (profileAuth.currentUser) {
+    loadProfileForm();
+  } else {
+    showLoginForm();
+  }
   
   modal.onclick = (e) => {
     if (e.target === modal) modal.remove();
   };
 }
 
+function showLoginForm() {
+  const form = document.getElementById('profile-form');
+  
+  form.innerHTML = `
+    <div class="auth-tabs">
+      <button class="tab-btn active" onclick="window.showLoginTab()">Login</button>
+      <button class="tab-btn" onclick="window.showSignupTab()">Sign Up</button>
+    </div>
+    
+    <div id="login-tab" class="tab-content active">
+      <h3>Login to Your Profile</h3>
+      <input type="email" id="login-email" placeholder="Email" />
+      <input type="password" id="login-password" placeholder="Password" />
+      <button onclick="window.handleLogin()">Login</button>
+      <p style="font-size: 0.85em; color: #666; margin-top: 1rem;">
+        Don't have an account? Click "Sign Up" above.
+      </p>
+    </div>
+    
+    <div id="signup-tab" class="tab-content">
+      <h3>Create New Profile</h3>
+      <input type="text" id="signup-name" placeholder="Your Name" />
+      <input type="email" id="signup-email" placeholder="Email" />
+      <input type="password" id="signup-password" placeholder="Password (min 6 characters)" />
+      <button onclick="window.handleSignup()">Create Profile</button>
+      <p style="font-size: 0.85em; color: #666; margin-top: 1rem;">
+        Already have an account? Click "Login" above.
+      </p>
+    </div>
+  `;
+}
+
+window.showLoginTab = function() {
+  document.getElementById('login-tab').classList.add('active');
+  document.getElementById('signup-tab').classList.remove('active');
+  document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.remove('active');
+}
+
+window.showSignupTab = function() {
+  document.getElementById('signup-tab').classList.add('active');
+  document.getElementById('login-tab').classList.remove('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  document.querySelectorAll('.tab-btn')[0].classList.remove('active');
+}
+
+window.handleLogin = async function() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  
+  if (!email || !password) {
+    alert('Please enter both email and password');
+    return;
+  }
+  
+  try {
+    const { signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    await signInWithEmailAndPassword(profileAuth, email, password);
+    
+    alert('Login successful!');
+    document.getElementById('profile-modal').remove();
+    window.location.reload();
+  } catch (error) {
+    console.error('Login error:', error);
+    if (error.code === 'auth/user-not-found') {
+      alert('No account found with this email. Please sign up first.');
+    } else if (error.code === 'auth/wrong-password') {
+      alert('Incorrect password. Please try again.');
+    } else if (error.code === 'auth/invalid-email') {
+      alert('Invalid email address.');
+    } else {
+      alert('Login failed: ' + error.message);
+    }
+  }
+}
+
+window.handleSignup = async function() {
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  
+  if (!name || !email || !password) {
+    alert('Please fill in all fields');
+    return;
+  }
+  
+  if (password.length < 6) {
+    alert('Password must be at least 6 characters');
+    return;
+  }
+  
+  try {
+    const { createUserWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    
+    const userCredential = await createUserWithEmailAndPassword(profileAuth, email, password);
+    const userId = userCredential.user.uid;
+    
+    // Save profile name
+    const docRef = doc(profileDb, 'users', userId);
+    await setDoc(docRef, {
+      profileName: name,
+      email: email,
+      watchedMovies: [],
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    });
+    
+    alert('Profile created successfully!');
+    document.getElementById('profile-modal').remove();
+    window.location.reload();
+  } catch (error) {
+    console.error('Signup error:', error);
+    if (error.code === 'auth/email-already-in-use') {
+      alert('This email is already registered. Please login instead.');
+    } else if (error.code === 'auth/invalid-email') {
+      alert('Invalid email address.');
+    } else if (error.code === 'auth/weak-password') {
+      alert('Password is too weak. Please use at least 6 characters.');
+    } else {
+      alert('Signup failed: ' + error.message);
+    }
+  }
+}
+
 async function loadProfileForm() {
   const form = document.getElementById('profile-form');
   
   if (!profileAuth.currentUser) {
-    form.innerHTML = '<p>Loading...</p>';
+    showLoginForm();
     return;
   }
   
   try {
     const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     const userId = profileAuth.currentUser.uid;
+    const email = profileAuth.currentUser.email;
     const docRef = doc(profileDb, 'users', userId);
     const docSnap = await getDoc(docRef);
     
@@ -61,18 +192,13 @@ async function loadProfileForm() {
       : '';
     
     form.innerHTML = `
-      <p>Set your profile name:</p>
+      <h3>Your Profile</h3>
+      <p><strong>Email:</strong> ${email}</p>
+      <p>Profile name:</p>
       <input type="text" id="profile-name" placeholder="Enter your name" value="${profileName}" />
-      <button onclick="window.saveProfileName()">Save</button>
-      <p style="font-size: 0.9em; color: #666; margin-top: 1rem;">
-        <strong>Your User ID:</strong><br>
-        <code style="background: #f0f0f0; padding: 0.25rem 0.5rem; border-radius: 3px; display: inline-block; margin-top: 0.25rem;">${userId}</code>
-      </p>
-      <p style="font-size: 0.85em; color: #999; margin-top: 0.5rem;">
-        Save this ID to login from another device
-      </p>
+      <button onclick="window.saveProfileName()">Save Name</button>
       <button onclick="window.profileLogout()" style="background: #dc3545; margin-top: 1rem;">
-        Logout & Create New Profile
+        Logout
       </button>
     `;
   } catch (error) {
@@ -117,23 +243,16 @@ window.saveProfileName = async function() {
 }
 
 window.profileLogout = async function() {
-  if (!confirm('Are you sure you want to logout and create a NEW profile? Your current data will remain saved in the cloud.\n\nTo access this profile again, save your User ID before logging out.')) {
+  if (!confirm('Are you sure you want to logout?')) {
     return;
   }
   
   try {
     const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-    
-    // Clear stored user ID
-    localStorage.removeItem('savedUserId');
-    localStorage.removeItem('watchedMovies');
-    
     await signOut(profileAuth);
     
-    alert('Logged out successfully! Creating new profile...');
+    alert('Logged out successfully!');
     document.getElementById('profile-modal')?.remove();
-    
-    // Reload page to create new anonymous user
     window.location.reload();
   } catch (error) {
     alert('Error logging out: ' + error.message);
