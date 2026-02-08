@@ -23,31 +23,28 @@ async function initFirebase() {
     auth = getAuth(app);
     db = getFirestore(app);
 
-    await initProfile();
-
     // Auth state observer
     onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    userId = user.uid;
-    
-    // Load profile name if exists
-    try {
-      const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-      const docRef = doc(db, 'users', userId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists() && docSnap.data().profileName) {
-        document.getElementById('user-status').textContent = `${docSnap.data().profileName} (Synced)`;
+      if (user) {
+        userId = user.uid;
+        
+        // Load profile name if exists
+        try {
+          const docRef = doc(db, 'users', userId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists() && docSnap.data().profileName) {
+            document.getElementById('user-status').textContent = `${docSnap.data().profileName} (Synced)`;
+          } else {
+            document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
+          }
+        } catch (error) {
+          document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
+        }
+        
+        await loadWatchedMovies();
+        setupRealtimeSync();
       } else {
-        document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
-      }
-    } catch (error) {
-      document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
-    }
-    
-    await loadWatchedMovies();
-    setupRealtimeSync();
-  } else {
         // Sign in anonymously
         try {
           await signInAnonymously(auth);
@@ -58,6 +55,10 @@ async function initFirebase() {
         }
       }
     });
+    
+    // Initialize profile functionality after auth is set up
+    await initProfile();
+    
   } catch (error) {
     console.error('Firebase initialization error:', error);
     document.getElementById('user-status').textContent = 'Offline mode';
