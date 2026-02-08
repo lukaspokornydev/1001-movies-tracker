@@ -145,15 +145,6 @@ export default {
             "length": "2h 23m"
         },
         {
-            "title": "H\u00e4",
-            "director": "Evann Chantrel",
-            "year": "1922",
-            "tags": "Comedy",
-            "desc": "",
-            "img": "600x900.svg",
-            "length": "0h 0m"
-        },
-        {
             "title": "Our Hospitality",
             "director": "Buster Keaton",
             "year": "1923",
@@ -9439,7 +9430,7 @@ export default {
             "tags": "Drama",
             "desc": "Two lost souls visiting Tokyo -- the young, neglected wife of a photographer and a washed-up movie star shooting a TV commercial -- find an odd solace and pensive freedom to be real in each other's company, away from their lives in America.",
             "img": "https://image.tmdb.org/t/p/w600_and_h900_bestv2/4k4Yz08WGfbu8ITIjaG99XTeco8.jpg",
-            "length": "2h 42m"
+            "length": "1h 41m"
         },
         {
             "title": "Elephant",
