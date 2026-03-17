@@ -344,3 +344,84 @@ window.goToMovie = function(title, year) {
 // Initialize app
 loadFromLocalStorage(); // Load immediately from localStorage
 initFirebase(); // Then init Firebase in background
+
+// Export watched movies as JSON file
+window.exportWatchedMovies = function() {
+  const data = {
+    watchedMovies: watchedMovies,
+    exportDate: new Date().toISOString(),
+    userId: userId || 'unknown'
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `1001-movies-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  alert(`✅ Exported ${watchedMovies.length} watched movies!`);
+}
+
+// Import watched movies from JSON file
+window.importWatchedMovies = function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      if (!data.watchedMovies || !Array.isArray(data.watchedMovies)) {
+        alert('❌ Invalid backup file!');
+        return;
+      }
+      
+      // Merge with existing data
+      const merged = [...new Set([...watchedMovies, ...data.watchedMovies])];
+      const newCount = merged.length - watchedMovies.length;
+      
+      if (confirm(`Import ${data.watchedMovies.length} movies? (${newCount} new)`)) {
+        watchedMovies = merged;
+        await saveWatchedMovies();
+        refreshUI();
+        alert(`✅ Imported successfully! Added ${newCount} new movies.`);
+      }
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('❌ Failed to import backup file!');
+    }
+  };
+  
+  input.click();
+}
+
+// Add export/import buttons to the UI
+function addBackupButtons() {
+  const stats = document.querySelector('.stats');
+  
+  const buttonsDiv = document.createElement('div');
+  buttonsDiv.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
+  buttonsDiv.innerHTML = `
+    <button onclick="exportWatchedMovies()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+      📥 Export Backup
+    </button>
+    <button onclick="importWatchedMovies()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+      📤 Import Backup
+    </button>
+  `;
+  
+  stats.appendChild(buttonsDiv);
+}
+
+// Call this in your initialization
+document.addEventListener('DOMContentLoaded', () => {
+  addBackupButtons();
+});
