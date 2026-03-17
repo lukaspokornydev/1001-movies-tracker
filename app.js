@@ -1,33 +1,15 @@
 import moviesData from './list.js';
-import { initProfile } from './profile.js';
 
 const movies = moviesData.movies;
 let watchedMovies = [];
 let currentDecade = null;
-let userId = null;
-let unsubscribe = null;
-
-// Firebase variables
-let auth, db;
-
-// Check for saved user ID on startup
-function checkSavedUserId() {
-  const savedId = localStorage.getItem('savedUserId');
-  if (savedId) {
-    const shouldRestore = confirm(`Found saved profile (ID: ${savedId.substring(0, 12)}...)\n\nDo you want to restore this profile?\n\nClick Cancel to create a new profile.`);
-    if (!shouldRestore) {
-      localStorage.removeItem('savedUserId');
-    }
-    return shouldRestore ? savedId : null;
-  }
-  return null;
-}
+let auth, db, userId;
 
 // Initialize Firebase
 async function initFirebase() {
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-    const { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    const { getAuth, signInAnonymously, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
     const { getFirestore, doc, setDoc, getDoc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     const { firebaseConfig } = await import('./firebase-config.js');
 
@@ -35,147 +17,163 @@ async function initFirebase() {
     auth = getAuth(app);
     db = getFirestore(app);
 
-    // Check for saved user ID
-    const savedUserId = checkSavedUserId();
-
-    // Auth state observer
+    // Handle auth state
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         userId = user.uid;
         
-        // Save user ID for future logins
-        localStorage.setItem('savedUserId', userId);
+        // Check if this is a new user or returning user
+        const savedUserId = localStorage.getItem('firebaseUserId');
         
-        // Load profile name if exists
-        try {
-          const docRef = doc(db, 'users', userId);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists() && docSnap.data().profileName) {
-            document.getElementById('user-status').textContent = `${docSnap.data().profileName} (Synced)`;
-          } else {
-            document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
-          }
-        } catch (error) {
-          document.getElementById('user-status').textContent = `Synced (ID: ${userId.substring(0, 8)}...)`;
+        if (!savedUserId) {
+          // First time user - migrate localStorage data to Firebase
+          console.log('New user - migrating local data to Firebase');
+          localStorage.setItem('firebaseUserId', userId);
+          await migrateLocalDataToFirebase();
+        } else if (savedUserId === userId) {
+          // Returning user - load from Firebase
+          console.log('Returning user - loading from Firebase');
+          await loadFromFirebase();
+        } else {
+          // Different user ID (shouldn't happen with anonymous auth, but just in case)
+          console.log('Different user detected');
+          localStorage.setItem('firebaseUserId', userId);
+          await loadFromFirebase();
         }
         
-        await loadWatchedMovies();
+        document.getElementById('user-status').textContent = `Synced`;
         setupRealtimeSync();
-        
-        // Initialize profile functionality AFTER user is authenticated
-        await initProfile(auth, db);
       } else {
-        // Sign in anonymously
-        try {
-          await signInAnonymously(auth);
-        } catch (error) {
-          console.error('Auth error:', error);
-          document.getElementById('user-status').textContent = 'Offline mode';
-          loadLocalWatchedMovies();
-        }
+        await signInAnonymously(auth);
       }
     });
     
   } catch (error) {
-    console.error('Firebase initialization error:', error);
+    console.error('Firebase error:', error);
     document.getElementById('user-status').textContent = 'Offline mode';
-    loadLocalWatchedMovies();
+    loadFromLocalStorage();
   }
 }
 
-// Load watched movies from Firestore
-async function loadWatchedMovies() {
+// Migrate existing localStorage data to Firebase
+async function migrateLocalDataToFirebase() {
+  const localData = localStorage.getItem('watchedMovies');
+  if (localData) {
+    watchedMovies = JSON.parse(localData);
+    console.log(`Migrating ${watchedMovies.length} movies to Firebase`);
+    await saveWatchedMovies();
+  }
+  refreshUI();
+}
+
+// Load watched movies from Firebase
+async function loadFromFirebase() {
   try {
     const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     const docRef = doc(db, 'users', userId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      watchedMovies = docSnap.data().watchedMovies || [];
+      const firebaseData = docSnap.data().watchedMovies || [];
+      const localData = JSON.parse(localStorage.getItem('watchedMovies') || '[]');
+      
+      // Merge Firebase and local data (in case of any sync issues)
+      watchedMovies = [...new Set([...firebaseData, ...localData])];
+      
+      // If we merged new data, save it back
+      if (watchedMovies.length > firebaseData.length) {
+        console.log('Merged local changes with Firebase data');
+        await saveWatchedMovies();
+      }
     } else {
-      // Migrate from localStorage if exists
-      const localData = localStorage.getItem('watchedMovies');
-      if (localData) {
-        watchedMovies = JSON.parse(localData);
+      // No Firebase data yet, use local
+      watchedMovies = JSON.parse(localStorage.getItem('watchedMovies') || '[]');
+      if (watchedMovies.length > 0) {
         await saveWatchedMovies();
       }
     }
     
-    displayDecades();
-    updateStats();
-    
-    if (currentDecade) {
-      displayMoviesByDecade(currentDecade);
-    } else {
-      const firstDecade = Math.floor(parseInt(movies[0].year) / 10) * 10;
-      currentDecade = firstDecade;
-      displayMoviesByDecade(firstDecade);
-    }
+    refreshUI();
   } catch (error) {
-    console.error('Error loading watched movies:', error);
-    loadLocalWatchedMovies();
+    console.error('Error loading from Firebase:', error);
+    loadFromLocalStorage();
   }
 }
 
 // Load from localStorage as fallback
-function loadLocalWatchedMovies() {
+function loadFromLocalStorage() {
   watchedMovies = JSON.parse(localStorage.getItem('watchedMovies')) || [];
-  displayDecades();
-  updateStats();
-  
-  const firstDecade = Math.floor(parseInt(movies[0].year) / 10) * 10;
-  currentDecade = firstDecade;
-  displayMoviesByDecade(firstDecade);
+  refreshUI();
 }
 
 // Setup realtime sync
 async function setupRealtimeSync() {
   try {
     const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    
-    if (unsubscribe) unsubscribe();
-    
     const docRef = doc(db, 'users', userId);
-    unsubscribe = onSnapshot(docRef, (doc) => {
+    
+    onSnapshot(docRef, (doc) => {
       if (doc.exists()) {
         const newWatchedMovies = doc.data().watchedMovies || [];
-        
-        // Only update if data changed
-        if (JSON.stringify(newWatchedMovies) !== JSON.stringify(watchedMovies)) {
+        if (JSON.stringify(newWatchedMovies.sort()) !== JSON.stringify(watchedMovies.sort())) {
+          console.log('Remote changes detected, updating UI');
           watchedMovies = newWatchedMovies;
-          displayDecades();
-          updateStats();
-          
-          if (currentDecade) {
-            displayMoviesByDecade(currentDecade);
-          }
+          localStorage.setItem('watchedMovies', JSON.stringify(watchedMovies));
+          refreshUI();
         }
       }
     });
   } catch (error) {
-    console.error('Error setting up realtime sync:', error);
+    console.error('Realtime sync error:', error);
   }
 }
 
-// Save watched movies to Firestore
+// Save watched movies
 async function saveWatchedMovies() {
   // Always save to localStorage first
   localStorage.setItem('watchedMovies', JSON.stringify(watchedMovies));
   
-  if (!userId || !db) {
-    return;
+  // Save to Firebase if available
+  if (userId && db) {
+    try {
+      const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      const docRef = doc(db, 'users', userId);
+      await setDoc(docRef, {
+        watchedMovies: watchedMovies,
+        lastUpdated: new Date().toISOString()
+      }, { merge: true });
+      console.log(`Saved ${watchedMovies.length} movies to Firebase`);
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
+    }
+  }
+}
+
+// Toggle watched status
+window.toggleWatched = async function(title) {
+  const index = watchedMovies.indexOf(title);
+  
+  if (index > -1) {
+    watchedMovies.splice(index, 1);
+  } else {
+    watchedMovies.push(title);
   }
   
-  try {
-    const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-    const docRef = doc(db, 'users', userId);
-    await setDoc(docRef, {
-      watchedMovies: watchedMovies,
-      lastUpdated: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error saving to Firestore:', error);
+  await saveWatchedMovies();
+  refreshUI();
+}
+
+// Refresh all UI elements
+function refreshUI() {
+  displayDecades();
+  updateStats();
+  
+  if (currentDecade) {
+    displayMoviesByDecade(currentDecade);
+  } else {
+    const firstDecade = Math.floor(parseInt(movies[0].year) / 10) * 10;
+    currentDecade = firstDecade;
+    displayMoviesByDecade(firstDecade);
   }
 }
 
@@ -184,9 +182,7 @@ function groupByDecade(movies) {
   const decades = {};
   
   movies.forEach(movie => {
-    const year = parseInt(movie.year);
-    const decade = Math.floor(year / 10) * 10;
-    
+    const decade = Math.floor(parseInt(movie.year) / 10) * 10;
     if (!decades[decade]) {
       decades[decade] = [];
     }
@@ -221,7 +217,6 @@ function displayDecades() {
     const watched = groupedMovies[decade].filter(m => watchedMovies.includes(m.title)).length;
     const progressPercent = (watched / count) * 100;
     
-    // Set the progress as a CSS custom property
     button.style.setProperty('--progress', `${progressPercent}%`);
     
     const badge = document.createElement('span');
@@ -268,27 +263,6 @@ function displayMoviesByDecade(decade) {
   });
   
   container.appendChild(grid);
-  updateStats();
-}
-
-// Toggle watched status
-window.toggleWatched = async function(title) {
-  const index = watchedMovies.indexOf(title);
-  
-  if (index > -1) {
-    watchedMovies.splice(index, 1);
-  } else {
-    watchedMovies.push(title);
-  }
-  
-  await saveWatchedMovies();
-  
-  // Refresh current view
-  if (currentDecade) {
-    displayMoviesByDecade(currentDecade);
-  }
-  
-  displayDecades();
 }
 
 // Update stats
@@ -320,7 +294,6 @@ searchInput.addEventListener('input', (e) => {
   displaySearchResults(results);
 });
 
-// Close search results when clicking outside
 document.addEventListener('click', (e) => {
   if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
     searchResults.classList.remove('show');
@@ -354,7 +327,6 @@ window.goToMovie = function(title, year) {
   displayMoviesByDecade(decade);
   displayDecades();
   
-  // Scroll to the movie card
   setTimeout(() => {
     const movieCards = document.querySelectorAll('.movie-card h3');
     movieCards.forEach(card => {
@@ -370,6 +342,5 @@ window.goToMovie = function(title, year) {
 }
 
 // Initialize app
-console.log('Initializing app...');
-loadLocalWatchedMovies(); // Load immediately from localStorage
-initFirebase(); // Then try to init Firebase in background
+loadFromLocalStorage(); // Load immediately from localStorage
+initFirebase(); // Then init Firebase in background
